@@ -1,19 +1,68 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>v2 WebAR</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/1.6.0/aframe/build/aframe-ar.js"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden;">
-    <!-- AR.js Scene -->
-    <a-scene embedded arjs>
-      <!-- Marker -->
-      <a-marker preset="custom" type="pattern" url="aruco18v3.patt">
-        <!-- Obiekt 3D (kostka) -->
-        <a-box position="0 0.5 0" material="color: yellow;"></a-box>
-      </a-marker>
-      <a-entity camera></a-entity>
-    </a-scene>
-  </body>
+<head>
+  <title>AR Marker Recognition</title>
+  <script async src="https://docs.opencv.org/master/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script type="text/javascript">
+    function onOpenCvReady() {
+      // Load the Aruco module
+      cv.onRuntimeInitialized = function() {
+        // Create a video capture element
+        const video = document.createElement('video');
+        video.width = window.innerWidth;
+        video.height = window.innerHeight;
+        document.body.appendChild(video);
+
+        // Get the canvas element
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Start video capture
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }) // Change here
+          .then(function(stream) {
+            video.srcObject = stream;
+            video.play();
+            requestAnimationFrame(processFrame);
+          })
+          .catch(function(error) {
+            console.error('Error accessing camera: ', error);
+          });
+
+        // Process each video frame
+        function processFrame() {
+          // Draw the video frame on the canvas
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // Convert the canvas image to a cv.Mat object
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const src = cv.matFromImageData(imageData);
+            // Perform AR marker recognition using Aruco
+            const dictionary = new cv.Dictionary(cv.DICT_4X4_250); // Change here
+            const parameters = new cv.DetectorParameters();
+            const corners = new cv.Mat();
+            const ids = new cv.Mat();
+            cv.detectMarkers(src, dictionary, corners, ids, parameters);
+
+          // Draw the detected markers on the canvas
+          cv.drawDetectedMarkers(src, corners, ids, new cv.Scalar(255, 0, 0));
+
+          // Convert the cv.Mat object back to a canvas image
+          cv.imshow(canvas, src);
+
+          // Clean up
+          src.delete();
+          corners.delete();
+          ids.delete();
+
+          // Request the next frame
+          requestAnimationFrame(processFrame);
+        }
+      };
+    }
+  </script>
+</body>
 </html>
